@@ -71,9 +71,9 @@ public class JobExecutionServiceTest {
         JobResult jobResult1 = service.submit(testJob1);
         Assertions.assertNotNull(jobResult1);
         JobResult jobResult2 = service.submit(testJob2);
-        Assertions.assertNotNull(jobResult1);
+        Assertions.assertNotNull(jobResult2);
         JobResult jobResult3 = service.submit(testJob3);
-        Assertions.assertNotNull(jobResult1);
+        Assertions.assertNotNull(jobResult3);
         int counter = 0;
         while (!(
             jobResult1.getStatus().isComplete() &&
@@ -106,9 +106,9 @@ public class JobExecutionServiceTest {
         JobResult jobResult1 = service.submit(testJob1);
         Assertions.assertNotNull(jobResult1);
         JobResult jobResult2 = service.submit(testJob2);
-        Assertions.assertNotNull(jobResult1);
+        Assertions.assertNotNull(jobResult2);
         JobResult jobResult3 = service.submit(testJob3);
-        Assertions.assertNotNull(jobResult1);
+        Assertions.assertNotNull(jobResult3);
         int counter = 0;
         while (!(
                 jobResult1.getStatus().isComplete() &&
@@ -145,9 +145,9 @@ public class JobExecutionServiceTest {
         JobResult jobResult1 = service.submit(testJob1);
         Assertions.assertNotNull(jobResult1);
         JobResult jobResult2 = service.submit(testJob2);
-        Assertions.assertNotNull(jobResult1);
+        Assertions.assertNotNull(jobResult2);
         JobResult jobResult3 = service.submit(testJob3);
-        Assertions.assertNotNull(jobResult1);
+        Assertions.assertNotNull(jobResult3);
         int counter = 0;
         while (!(
                 jobResult1.getStatus().isComplete() &&
@@ -161,6 +161,42 @@ public class JobExecutionServiceTest {
         Assertions.assertEquals(JobExecutionStatus.SUCCESS, jobResult2.getStatus());
         Assertions.assertEquals(JobExecutionStatus.SUCCESS, jobResult3.getStatus());
         verify(mockedBatchProcessor, times(2)).process(any());
+        verifyNoMoreInteractions(mockedBatchProcessor);
+    }
+
+    @Test
+    public void testShutdown() {
+        TestJob testJob1 = new TestJob();
+        TestJob testJob2 = new TestJob();
+        TestJob testJob3 = new TestJob();
+
+        BatchProcessor mockedBatchProcessor = mock(BatchProcessor.class);
+        when(mockedBatchProcessor.process(eq(List.of(testJob1, testJob2, testJob3)))).thenReturn(
+                List.of(
+                        new JobResult(testJob1.getId(), JobExecutionStatus.SUCCESS),
+                        new JobResult(testJob2.getId(), JobExecutionStatus.SUCCESS),
+                        new JobResult(testJob3.getId(), JobExecutionStatus.SUCCESS)
+                )
+        );
+        when(mockedBatchProcessor.process(eq(List.of(testJob3)))).thenReturn(List.of(new JobResult(testJob3.getId(), JobExecutionStatus.SUCCESS)));
+
+        JobExecutionService service = new JobExecutionService(4, mockedBatchProcessor);
+        JobResult jobResult1 = service.submit(testJob1);
+        Assertions.assertNotNull(jobResult1);
+        Assertions.assertEquals(JobExecutionStatus.PENDING, jobResult1.getStatus());
+        JobResult jobResult2 = service.submit(testJob2);
+        Assertions.assertNotNull(jobResult2);
+        Assertions.assertEquals(JobExecutionStatus.PENDING, jobResult2.getStatus());
+        JobResult jobResult3 = service.submit(testJob3);
+        Assertions.assertNotNull(jobResult3);
+        Assertions.assertEquals(JobExecutionStatus.PENDING, jobResult3.getStatus());
+
+        service.shutdown();
+
+        Assertions.assertEquals(JobExecutionStatus.SUCCESS, jobResult1.getStatus());
+        Assertions.assertEquals(JobExecutionStatus.SUCCESS, jobResult2.getStatus());
+        Assertions.assertEquals(JobExecutionStatus.SUCCESS, jobResult3.getStatus());
+        verify(mockedBatchProcessor).process(any());
         verifyNoMoreInteractions(mockedBatchProcessor);
     }
 

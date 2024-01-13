@@ -12,7 +12,7 @@ public class JobExecutionService {
     private int batchSize;
     private BatchProcessor batchProcessor;
 
-    private long maxDelayInMillis = 500;
+    private long maxDelayInMillis;
 
     private long lastRun = System.currentTimeMillis();
 
@@ -21,8 +21,13 @@ public class JobExecutionService {
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
     public JobExecutionService(int batchSize, @Nonnull BatchProcessor batchProcessor) {
+        this(batchSize, 500, batchProcessor);
+    }
+
+    public JobExecutionService(int batchSize, long maxDelayInMillis, @Nonnull BatchProcessor batchProcessor) {
         this.batchSize = batchSize;
         this.batchProcessor = batchProcessor;
+        this.maxDelayInMillis = maxDelayInMillis;
 
         scheduler.scheduleAtFixedRate(this::checkPending, maxDelayInMillis, maxDelayInMillis, TimeUnit.MILLISECONDS);
     }
@@ -32,8 +37,15 @@ public class JobExecutionService {
         synchronized (pendingJobs) {
             pendingJobs.add(new PendingDetails(job, result));
         }
-        checkPending();
+        scheduler.submit(this::checkPending);
         return result;
+    }
+
+    public void shutdown() {
+        scheduler.shutdown();
+        while (!pendingJobs.isEmpty()) {
+            sendNextBatch();
+        }
     }
 
     private void checkPending() {
@@ -43,8 +55,12 @@ public class JobExecutionService {
         }
 
         if ((pendingJobs.size() == batchSize) || isTimeToSend()) {
-            sendJobs(nextJobs());
+            sendNextBatch();
         }
+    }
+
+    private void sendNextBatch() {
+        sendJobs(nextJobs());
     }
 
     private boolean isTimeToSend() {
@@ -67,6 +83,7 @@ public class JobExecutionService {
         jobDetails.stream().map(details -> details.jobResult).forEach(result -> result.setStatus(JobExecutionStatus.RUNNING));
         List<Job> pendingJobs = jobDetails.stream().map(PendingDetails::getJob).toList();
         List<JobResult> results = batchProcessor.process(pendingJobs);
+        lastRun = System.currentTimeMillis();
         for (JobResult result : results) {
             Optional<JobResult> resultToUpdateOpt = jobDetails.stream()
                     .filter(details -> details.job.getId().equals(result.getJobId()))
