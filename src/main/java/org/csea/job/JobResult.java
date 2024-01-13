@@ -43,6 +43,10 @@ public class JobResult {
         return status;
     }
 
+    public void setStatus(JobExecutionStatus status) {
+        this.status = status;
+    }
+
     /**
      * If the <code>Job</code> was not successful, a message that describes what the problem was
      *

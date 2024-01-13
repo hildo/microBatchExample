@@ -3,20 +3,28 @@ package org.csea.job;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
-import java.util.stream.Collectors;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class JobExecutionService {
 
     private int batchSize;
     private BatchProcessor batchProcessor;
 
+    private long maxDelayInMillis = 500;
+
+    private long lastRun = System.currentTimeMillis();
+
     private final List<PendingDetails> pendingJobs = new java.util.ArrayList<>();
+
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
     public JobExecutionService(int batchSize, @Nonnull BatchProcessor batchProcessor) {
         this.batchSize = batchSize;
         this.batchProcessor = batchProcessor;
+
+        scheduler.scheduleAtFixedRate(this::checkPending, maxDelayInMillis, maxDelayInMillis, TimeUnit.MILLISECONDS);
     }
 
     public JobResult submit(Job job) {
@@ -29,16 +37,25 @@ public class JobExecutionService {
     }
 
     private void checkPending() {
-        if (pendingJobs.size() == batchSize) {
+        if (pendingJobs.isEmpty()) {
+            // do nothing
+            return;
+        }
+
+        if ((pendingJobs.size() == batchSize) || isTimeToSend()) {
             sendJobs(nextJobs());
         }
+    }
+
+    private boolean isTimeToSend() {
+        return (lastRun + maxDelayInMillis < System.currentTimeMillis());
     }
 
     private List<PendingDetails> nextJobs() {
         List<PendingDetails> returnValue = new java.util.ArrayList<>();
         synchronized (pendingJobs) {
             while ((returnValue.size() < batchSize) && !pendingJobs.isEmpty()) {
-                PendingDetails details = pendingJobs.get(0);
+                PendingDetails details = pendingJobs.getFirst();
                 pendingJobs.remove(details);
                 returnValue.add(details);
             }
@@ -47,6 +64,7 @@ public class JobExecutionService {
     }
 
     private void sendJobs(List<PendingDetails> jobDetails) {
+        jobDetails.stream().map(details -> details.jobResult).forEach(result -> result.setStatus(JobExecutionStatus.RUNNING));
         List<Job> pendingJobs = jobDetails.stream().map(PendingDetails::getJob).toList();
         List<JobResult> results = batchProcessor.process(pendingJobs);
         for (JobResult result : results) {
