@@ -25,7 +25,7 @@ Job instances can be submitted to the service using the submit method
 public JobResult submit(Job job)
 ```
 For each submitted Job, a JobResult will be provided.  Callers submitting Jobs can
-use the Result to determine the [status](src/main/java/org/csea/job/JobExecutionStatus.java) of the Job.  A jobs status wll be one of four values
+use the JobResult to determine the [status](src/main/java/org/csea/job/JobExecutionStatus.java) of the Job.  A job's status wll be one of four values
 - PENDING: The job has been submitted but not sent to the processor
 - RUNNING: The job has been sent to the processor but a response has not been received
 - SUCCESS: The batch processor reported a successful job execution
