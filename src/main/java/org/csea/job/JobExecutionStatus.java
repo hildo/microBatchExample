@@ -2,6 +2,9 @@ package org.csea.job;
 
 import java.util.EnumSet;
 
+/**
+ * Records the state of a Job's execution
+ */
 public enum JobExecutionStatus {
     PENDING(false),
     RUNNING(false),

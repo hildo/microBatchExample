@@ -7,6 +7,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * A service that accepts <code>Job</code> objects and orchestrates when they are sent to a <code>BatchProcessor</code>
+ */
 public class JobExecutionService {
 
     private int batchSize;
@@ -20,10 +23,23 @@ public class JobExecutionService {
 
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
+    /**
+     * Creates a new instance of the service
+     *
+     * @param batchSize the maximum number of Jobs that will be sent to the processor at any one time
+     * @param batchProcessor the <code>BatchProcessor</code> to use when servicing the Jobs
+     */
     public JobExecutionService(int batchSize, @Nonnull BatchProcessor batchProcessor) {
         this(batchSize, 500, batchProcessor);
     }
 
+    /**
+     * Creates a new instance of the service
+     *
+     * @param batchSize the maximum number of Jobs that will be sent to the processor at any one time
+     * @param maxDelayInMillis the time in milliseconds that the service will check for pending requests
+     * @param batchProcessor the <code>BatchProcessor</code> to use when servicing the Jobs
+     */
     public JobExecutionService(int batchSize, long maxDelayInMillis, @Nonnull BatchProcessor batchProcessor) {
         this.batchSize = batchSize;
         this.batchProcessor = batchProcessor;
@@ -32,6 +48,11 @@ public class JobExecutionService {
         scheduler.scheduleAtFixedRate(this::checkPending, maxDelayInMillis, maxDelayInMillis, TimeUnit.MILLISECONDS);
     }
 
+    /**
+     * Submit a job for execution
+     * @param job the job to execute
+     * @return a <code>JobResult</code> for the Job
+     */
     public JobResult submit(Job job) {
         JobResult result = new JobResult(job.getId());
         synchronized (pendingJobs) {
@@ -41,6 +62,9 @@ public class JobExecutionService {
         return result;
     }
 
+    /**
+     * Shuts down the service.   Any pending jobs will be send to the <code>BatchProcessor</code> before returning
+     */
     public void shutdown() {
         scheduler.shutdown();
         while (!pendingJobs.isEmpty()) {

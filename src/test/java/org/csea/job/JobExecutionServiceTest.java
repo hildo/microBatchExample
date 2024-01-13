@@ -92,6 +92,44 @@ public class JobExecutionServiceTest {
     }
 
     @Test
+    public void testServiceThreeBatchSizeNotAllSuccess() throws InterruptedException {
+        TestJob testJob1 = new TestJob();
+        TestJob testJob2 = new TestJob();
+        TestJob testJob3 = new TestJob();
+
+        BatchProcessor mockedBatchProcessor = mock(BatchProcessor.class);
+        when(mockedBatchProcessor.process(anyList())).thenReturn(Arrays.asList(
+                        new JobResult(testJob1.getId(), JobExecutionStatus.SUCCESS),
+                        new JobResult(testJob2.getId(), JobExecutionStatus.FAIL),
+                        new JobResult(testJob3.getId(), JobExecutionStatus.SUCCESS)
+                )
+        );
+
+        JobExecutionService service = new JobExecutionService(3, mockedBatchProcessor);
+        JobResult jobResult1 = service.submit(testJob1);
+        Assertions.assertNotNull(jobResult1);
+        JobResult jobResult2 = service.submit(testJob2);
+        Assertions.assertNotNull(jobResult2);
+        JobResult jobResult3 = service.submit(testJob3);
+        Assertions.assertNotNull(jobResult3);
+        int counter = 0;
+        while (!(
+                jobResult1.getStatus().isComplete() &&
+                        jobResult2.getStatus().isComplete() &&
+                        jobResult3.getStatus().isComplete()
+        )
+                && counter++ < 4) {
+
+            jobResult3.await(1000);
+        }
+        Assertions.assertEquals(JobExecutionStatus.SUCCESS, jobResult1.getStatus());
+        Assertions.assertEquals(JobExecutionStatus.FAIL, jobResult2.getStatus());
+        Assertions.assertEquals(JobExecutionStatus.SUCCESS, jobResult3.getStatus());
+        verify(mockedBatchProcessor).process(any());
+        verifyNoMoreInteractions(mockedBatchProcessor);
+    }
+
+    @Test
     public void testServiceOneBatchSizeThreeRequestSuccess() throws InterruptedException {
         TestJob testJob1 = new TestJob();
         TestJob testJob2 = new TestJob();
