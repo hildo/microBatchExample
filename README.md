@@ -1,5 +1,5 @@
 # Micro-batching library
-This library was written in Java.  The only third party dependencies used are for
+This library was written in Java and uses Maven as a build tool.  The only third party dependencies used are for
 testing (JUnit, Mockito).
 
 ## Job Execution Service
